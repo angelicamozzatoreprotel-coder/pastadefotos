@@ -3,6 +3,7 @@
  *
  * Funções para rodar manualmente no editor (menu "Executar"):
  *   testarConexao                    confere a chave da RAI e o acesso à pasta "Fotos". Não altera nada.
+ *   criarPastaDeTeste                cria um "Hotel Teste" na pasta configurada, sem consultar a RAI.
  *   marcarClientesAtuaisComoVistos   passo obrigatório antes de ligar. Nenhum cliente atual ganha pasta.
  *   simular                          mostra o que seria criado agora, sem criar nada.
  *   instalarGatilho                  liga a verificação automática a cada 10 minutos.
@@ -84,6 +85,20 @@ function marcarClientesAtuaisComoVistos() {
   log_('Marcação concluída. ' + total + ' cliente(s) marcados como vistos (' + (total - antes) + ' novos nesta rodada). Nenhuma pasta foi criada.');
   if (semId) log_('Atenção: ' + semId + ' cliente(s) sem "' + CONFIG.CAMPO_ID + '" não puderam ser marcados e serão sempre ignorados.');
   log_('Próximo passo: rodar simular e, se estiver tudo em ordem, instalarGatilho.');
+}
+
+// Cria a estrutura de um hotel fictício na pasta configurada, sem consultar a RAI.
+// Serve para ver o resultado real no Drive antes de ligar a automação.
+function criarPastaDeTeste() {
+  var nome = 'Hotel Teste';
+  var fotos = pastaFotos_();
+  if (pastasExistentes_(fotos)[chaveComparacao_(nome)]) {
+    log_('Já existe uma pasta "' + nome + '" em "' + fotos.getName() + '". Nada foi criado, e a proteção contra duplicação funcionou.');
+    return;
+  }
+  var hotel = criarEstrutura_(fotos, nome);
+  log_('Pasta de teste criada em "' + fotos.getName() + '": ' + hotel.getUrl());
+  log_('Rode criarPastaDeTeste de novo para confirmar que ela não é duplicada.');
 }
 
 function simular() {

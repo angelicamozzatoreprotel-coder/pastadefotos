@@ -215,3 +215,15 @@ test('instalarGatilho cria um único gatilho de 10 minutos', () => {
   t.gs.removerGatilho();
   assert.equal(t.triggers.length, 0);
 });
+
+test('criarPastaDeTeste monta o Hotel Teste uma única vez, sem consultar a RAI', () => {
+  const t = createEnv({ clientes: atuais(3) });
+  t.gs.criarPastaDeTeste();
+  t.gs.criarPastaDeTeste();
+  assert.equal(t.requests.length, 0);
+  assert.equal(t.fotos.children().length, 1);
+  const hotel = t.fotos.children()[0];
+  assert.equal(hotel.name, 'Hotel Teste');
+  assert.equal(hotel.children().length, 5);
+  assert.equal(hotel.children()[0].children().length, 6);
+});

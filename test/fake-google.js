@@ -15,6 +15,7 @@ class FakeFolder {
   }
   getName() { return this.name; }
   getId() { return this.id; }
+  getUrl() { return `https://drive.google.com/drive/folders/${this.id}`; }
   isTrashed() { return this.trashed; }
   setTrashed(v) { this.trashed = v; return this; }
   children() { return this.drive.all.filter((f) => f.parent === this && !f.trashed); }
