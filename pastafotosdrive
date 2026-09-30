@@ -1,0 +1,45 @@
+## Objetivo
+Implementar uma automação que, sempre que um novo cliente for criado na seção "Clientes"
+da plataforma, crie automaticamente uma estrutura de pastas no Google Drive.
+
+## Contexto
+- A plataforma possui API própria (chave disponível em variável de ambiente PLATFORM_API_KEY).
+- Já existe no Google Drive uma pasta chamada "Fotos" (ID em GOOGLE_DRIVE_FOTOS_FOLDER_ID).
+- A autenticação no Google Drive deve usar Service Account (JSON em GOOGLE_SERVICE_ACCOUNT_JSON).
+- A pasta "Fotos" está compartilhada com o e-mail da Service Account como Editor.
+
+## Gatilho
+- Preferencialmente via webhook da plataforma no evento de criação de cliente.
+- Se a plataforma não tiver webhook, implementar polling a cada 5 minutos consultando
+  clientes novos pela API e registrando quais já foram processados.
+
+## Estrutura a ser criada (dentro da pasta "Fotos")
+[Nome do Hotel]            ← usar o nome do cliente/hotel cadastrado
+├── Acomodações
+│   ├── Insira o nome da acomodação
+│   ├── Insira o nome da acomodação
+│   ├── Insira o nome da acomodação
+│   ├── Insira o nome da acomodação
+│   ├── Insira o nome da acomodação
+│   └── Insira o nome da acomodação
+├── Café da manhã
+├── Eventos
+├── Estrutura
+└── Academia
+
+## Requisitos técnicos
+1. Usar Google Drive API v3 (files.create com mimeType "application/vnd.google-apps.folder").
+2. Incluir supportsAllDrives=true para funcionar também em Drives Compartilhados.
+3. Idempotência: antes de criar a pasta do hotel, verificar se já existe uma pasta com
+   o mesmo nome dentro de "Fotos". Se existir, não duplicar.
+4. Limpar o nome do hotel (remover espaços extras e caracteres inválidos).
+5. Salvar o ID da pasta criada de volta no cadastro do cliente, se a API da plataforma permitir.
+6. Tratar erros com retry (backoff exponencial) e registrar logs de sucesso e falha.
+7. Todas as credenciais devem vir de variáveis de ambiente, nunca fixas no código.
+8. Criar um arquivo .env.example e um README explicando a configuração da Service Account.
+
+## Critérios de aceite
+- Ao criar um cliente "Hotel Exemplo", aparece em "Fotos" a pasta "Hotel Exemplo"
+  com as 5 subpastas e as 6 subpastas dentro de "Acomodações".
+- Criar o mesmo cliente novamente não gera pasta duplicada.
+- Falhas ficam registradas em log sem derrubar a aplicação.
