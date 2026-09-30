@@ -1,121 +1,115 @@
 # Pasta de Fotos
 
-Toda vez que um novo cliente entra na seção "Clientes" da plataforma, esta automação cria no Google Drive, dentro da pasta "Fotos", a estrutura de pastas do hotel:
+Toda vez que um novo cliente é cadastrado na RAI, esta automação cria no Google Drive, dentro da pasta "Fotos", a estrutura de pastas do hotel:
 
 ```
-[Nome do Hotel]
+155 Hotel
 ├── Acomodações
-│   ├── Insira o nome da acomodação  (6 pastas)
+│   └── Insira o nome da acomodação  (6 pastas)
 ├── Café da manhã
 ├── Eventos
 ├── Estrutura
 └── Academia
 ```
 
+Ela roda no **Google Apps Script**, dentro da conta Google, sem servidor e sem custo. A cada 10 minutos, consulta a lista de clientes da RAI e cria pastas apenas para os clientes que ainda não conhece.
+
 A especificação original está no arquivo `pastafotosdrive`.
 
-## Como funciona
+## Proteções
 
-A automação roda em um de dois modos, escolhido pela variável `MODE`:
+Os clientes que já existem na RAI nunca ganham pasta. Para isso, a automação conta com estas travas:
 
-`webhook` (recomendado): sobe um servidor HTTP que recebe o evento de criação de cliente da plataforma em `POST /webhooks/cliente-criado`. O servidor responde `202` na hora e processa o cliente em seguida. Também expõe `GET /health` para monitoramento.
+**Marcação inicial obrigatória.** Antes de ligar, a função `marcarClientesAtuaisComoVistos` registra todos os clientes atuais como "já vistos". Sem esse passo, a automação não cria nada, e o gatilho nem pode ser instalado.
 
-`polling`: consulta a lista de clientes na API a cada 5 minutos e processa apenas os que ainda não constam no arquivo `data/processed-clients.json`. Um cliente só entra nesse registro depois que a estrutura foi criada com sucesso, então falhas são tentadas de novo no ciclo seguinte.
+**Limite de 5 por vez.** Se aparecerem mais de 5 clientes novos de uma vez, nenhuma pasta é criada e um e-mail de alerta é enviado, uma única vez por lote. Depois você decide o que fazer com o lote, liberando ou ignorando.
 
-Em ambos os modos:
+**Modo de simulação.** A função `simular` mostra no registro o que seria criado naquele momento, sem criar pastas e sem alterar nada.
 
-1. O nome do hotel é limpo, com espaços extras e caracteres inválidos removidos.
-2. Antes de criar, a automação procura uma pasta com o mesmo nome dentro de "Fotos". Se existir, reaproveita e só completa as subpastas que faltarem. As 6 pastas de acomodação nascem apenas junto com "Acomodações", para não recriar marcadores que a equipe já renomeou.
-3. Todas as chamadas usam a Google Drive API v3 com `supportsAllDrives=true`, funcionando também em Drives Compartilhados.
-4. Erros temporários (limite de taxa, erros 5xx, falhas de rede) são repetidos com backoff exponencial.
-5. Se `PLATFORM_DRIVE_FOLDER_FIELD` estiver configurado, o ID da pasta do hotel é gravado de volta no cadastro do cliente.
-6. Sucessos e falhas vão para o log em JSON, uma linha por evento. Nenhuma falha derruba a aplicação.
+**Sem duplicação.** Se já existe em "Fotos" uma pasta com o nome do hotel, nada é criado. A comparação ignora maiúsculas, acentos e emojis, então "Pousada Café" e "🔸 POUSADA CAFE" contam como a mesma pasta.
 
-## Requisitos
+**Falhas sem estragos.** Se a RAI ou o Drive falharem, a automação tenta de novo com espera crescente. Se a criação parar no meio, a pasta incompleta vai para a lixeira e o cliente é tentado de novo na verificação seguinte. Quando a consulta à RAI falha de vez, o Google envia um e-mail de falha de execução para o dono do script.
 
-Node.js 20.6 ou superior (o projeto usa `--env-file` nativo).
+**Nome limpo.** Os emojis do início do nome são removidos, então "🏨 155 Hotel" vira a pasta "155 Hotel".
+
+## Instalação, passo a passo
+
+Faça tudo com a conta Google que tem acesso de edição à pasta "Fotos". As pastas criadas pela automação ficam em nome dessa conta.
+
+### 1. Criar o projeto
+
+1. Acesse [script.google.com](https://script.google.com) e clique em **Novo projeto**.
+2. Dê um nome ao projeto no topo da tela, por exemplo "Pasta de Fotos".
+3. Apague todo o conteúdo do arquivo `Código.gs` que aparece aberto.
+4. Copie todo o conteúdo do arquivo [`apps-script/Codigo.gs`](apps-script/Codigo.gs) deste repositório e cole no lugar.
+5. Clique no ícone de engrenagem (**Configurações do projeto**), marque **Mostrar arquivo de manifesto "appsscript.json" no editor** e volte ao editor.
+6. Abra o `appsscript.json`, substitua o conteúdo pelo arquivo [`apps-script/appsscript.json`](apps-script/appsscript.json) e salve.
+
+### 2. Guardar a chave e o ID da pasta
+
+1. Abra a pasta "Fotos" no Google Drive e copie o trecho final do endereço: `https://drive.google.com/drive/folders/ESTE_TRECHO`.
+2. No Apps Script, vá em **Configurações do projeto > Propriedades do script > Adicionar propriedade do script** e crie:
+
+| Propriedade | Valor |
+| --- | --- |
+| `RAI_API_KEY` | a chave da API da RAI |
+| `FOTOS_FOLDER_ID` | o ID da pasta "Fotos" |
+| `EMAIL_ALERTA` | opcional: e-mail que recebe os alertas (padrão: sua conta) |
+
+3. Clique em **Salvar propriedades do script**.
+
+A chave fica guardada no projeto, fora do código. Quem tiver acesso de edição ao projeto consegue vê-la, então compartilhe o projeto apenas com quem precisa.
+
+### 3. Testar a conexão
+
+1. No editor, escolha a função `testarConexao` no menu ao lado do botão **Executar** e clique em **Executar**.
+2. Na primeira execução, o Google pede autorização. Clique em **Revisar permissões**, escolha sua conta e permita. Se aparecer o aviso "O Google não verificou este app", clique em **Avançado** e depois em **Acessar Pasta de Fotos**. O aviso aparece porque o script é seu e não foi publicado.
+3. O registro de execução deve mostrar o total de clientes (hoje, 294), alguns exemplos de nomes já limpos e a confirmação de acesso à pasta "Fotos".
+
+Se aparecer `HTTP 401` ou `HTTP 403`, a RAI recusou a chave. Confira o valor de `RAI_API_KEY` e me avise, porque talvez a RAI espere a chave em outro formato.
+
+### 4. Marcar os clientes atuais
+
+Execute `marcarClientesAtuaisComoVistos`. O registro deve informar 294 clientes marcados e confirmar que nenhuma pasta foi criada. Pode rodar de novo sem risco: a função apenas soma clientes à lista de vistos.
+
+### 5. Simular
+
+Execute `simular`. O resultado esperado agora é "Nenhum cliente novo". Se aparecer qualquer outra coisa, pare aqui e me mande o registro.
+
+### 6. Ligar
+
+Execute `instalarGatilho`. A partir daí, a verificação acontece sozinha a cada 10 minutos. Para conferir, abra o ícone de relógio (**Acionadores**) no menu lateral.
+
+## Uso no dia a dia
+
+Nada precisa ser feito. Para acompanhar, abra o ícone de lista (**Execuções**) no menu lateral e veja o registro de cada verificação.
+
+| Situação | O que rodar |
+| --- | --- |
+| Ver a situação geral | `verStatus` |
+| Ver o que seria criado agora | `simular` |
+| Recebi o alerta e os clientes são novos de verdade | `simular`, depois `liberarClientesPendentes` |
+| Recebi o alerta e os clientes não devem ganhar pasta | `ignorarClientesPendentes` |
+| Pausar a automação | `removerGatilho` |
+| Religar a automação | `instalarGatilho` |
+
+A liberação manual também tem limite, de 30 clientes por vez. Acima disso, alguma coisa fora do comum aconteceu na RAI e vale investigar antes de criar pastas.
+
+## Testes
+
+Os testes rodam o `Codigo.gs` em um ambiente que simula o Google Drive, a RAI e o Gmail, sem tocar em nada real:
 
 ```bash
-npm install
-cp .env.example .env   # e preencha os valores
 npm test
 ```
 
-## Configurando a Service Account do Google
+Eles cobrem cada proteção acima, incluindo o cenário com os 294 clientes atuais.
 
-1. Acesse o [Google Cloud Console](https://console.cloud.google.com/) e crie um projeto, ou selecione um existente.
-2. Em **APIs e serviços > Biblioteca**, ative a **Google Drive API**.
-3. Em **APIs e serviços > Credenciais**, clique em **Criar credenciais > Conta de serviço**, dê um nome e conclua. Nenhum papel do projeto é necessário.
-4. Abra a conta de serviço criada, vá na aba **Chaves**, clique em **Adicionar chave > Criar nova chave** e escolha **JSON**. O arquivo é baixado uma única vez, então guarde em local seguro e nunca o coloque no repositório.
-5. Copie o e-mail da conta de serviço (termina em `@...iam.gserviceaccount.com`).
-6. No Google Drive, abra a pasta "Fotos", clique em **Compartilhar** e adicione esse e-mail como **Editor**. Em um Drive Compartilhado, adicione a conta como membro com permissão de **Administrador de conteúdo** ou superior.
-7. Copie o ID da pasta "Fotos", que é o trecho final da URL: `https://drive.google.com/drive/folders/<ESTE_É_O_ID>`.
-
-No `.env`, preencha:
+## Arquivos
 
 ```
-GOOGLE_SERVICE_ACCOUNT_JSON=/caminho/seguro/service-account.json
-GOOGLE_DRIVE_FOTOS_FOLDER_ID=<ID da pasta Fotos>
-```
-
-`GOOGLE_SERVICE_ACCOUNT_JSON` aceita três formatos: o caminho do arquivo, o conteúdo JSON em uma linha ou o conteúdo codificado em base64 (`base64 -w0 service-account.json`). O base64 é o mais prático em serviços de hospedagem que só aceitam variáveis de ambiente.
-
-> Importante: pastas criadas por uma Service Account em um Drive pessoal ficam com a conta de serviço como proprietária e ocupam a cota dela. Com a pasta "Fotos" dentro de um Drive Compartilhado, a propriedade fica com a organização.
-
-## Configurando a API da plataforma
-
-As rotas e os nomes de campos variam de plataforma para plataforma, por isso tudo é ajustável pelo `.env`:
-
-| Variável | Uso |
-| --- | --- |
-| `PLATFORM_API_KEY` | Chave da API |
-| `PLATFORM_API_BASE_URL` | URL base, por exemplo `https://api.suaplataforma.com/v1` |
-| `PLATFORM_API_AUTH_HEADER` / `PLATFORM_API_AUTH_SCHEME` | Como a chave é enviada. Padrão: `Authorization: Bearer <chave>` |
-| `PLATFORM_CLIENTS_PATH` | Rota de listagem de clientes (modo polling) |
-| `PLATFORM_CLIENTS_LIST_KEY` | Chave da lista, se a resposta vier como `{"data": [...]}` |
-| `PLATFORM_CLIENT_ID_FIELD` / `PLATFORM_CLIENT_NAME_FIELD` | Campos de ID e de nome do hotel no cliente |
-| `PLATFORM_CLIENT_PATH` / `PLATFORM_UPDATE_METHOD` | Rota e método para atualizar o cliente |
-| `PLATFORM_DRIVE_FOLDER_FIELD` | Campo que recebe o ID da pasta. Vazio desativa esse passo |
-
-## Rodando
-
-Modo webhook:
-
-```bash
-npm run start:webhook
-```
-
-Cadastre na plataforma o webhook do evento de criação de cliente apontando para `https://<seu-servidor>/webhooks/cliente-criado`. Se a plataforma permitir cabeçalhos personalizados, defina `WEBHOOK_SECRET` e envie o mesmo valor no cabeçalho `x-webhook-secret`. O payload pode trazer o cliente na raiz (`{"id": 1, "nome": "Hotel Exemplo"}`) ou dentro de `data`, `cliente`, `client`, `payload` ou `record`.
-
-Modo polling:
-
-```bash
-npm run start:polling
-```
-
-Na primeira execução do polling, todos os clientes já existentes são tratados como novos. Graças à verificação de pastas existentes, nenhum hotel é duplicado, mas a estrutura será completada para cada um deles.
-
-Criação manual, útil para testar a Service Account ou reprocessar um hotel:
-
-```bash
-npm run create -- "Hotel Exemplo"
-```
-
-## Estrutura do código
-
-```
-src/
-  index.js      ponto de entrada, escolhe o modo
-  cli.js        criação manual via linha de comando
-  config.js     leitura das variáveis de ambiente
-  drive.js      Google Drive API v3 e estrutura de pastas
-  platform.js   cliente genérico da API da plataforma
-  processor.js  fluxo completo de um cliente
-  webhook.js    servidor HTTP do webhook
-  poller.js     consulta periódica
-  state.js      registro de clientes processados
-  retry.js      retry com backoff exponencial
-  sanitize.js   limpeza do nome do hotel
-  logger.js     logs em JSON
-test/           testes com Drive simulado em memória
+apps-script/Codigo.gs          código da automação (vai para o Apps Script)
+apps-script/appsscript.json    manifesto com fuso horário e permissões
+test/                          testes locais com Google simulado
+pastafotosdrive                especificação original
 ```

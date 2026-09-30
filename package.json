@@ -1,20 +1,9 @@
 {
   "name": "pastadefotos",
-  "version": "1.0.0",
-  "description": "Cria automaticamente a estrutura de pastas de fotos no Google Drive para cada novo cliente da plataforma.",
-  "type": "module",
-  "main": "src/index.js",
-  "engines": {
-    "node": ">=20.6"
-  },
+  "version": "2.0.0",
+  "private": true,
+  "description": "Testes locais da automação em Google Apps Script que cria pastas de fotos no Drive para cada novo cliente da RAI.",
   "scripts": {
-    "start": "node --env-file=.env src/index.js",
-    "start:webhook": "MODE=webhook node --env-file=.env src/index.js",
-    "start:polling": "MODE=polling node --env-file=.env src/index.js",
-    "create": "node --env-file=.env src/cli.js",
     "test": "node --test test/*.test.js"
-  },
-  "dependencies": {
-    "google-auth-library": "^11.1.0"
   }
 }
