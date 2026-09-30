@@ -5,11 +5,11 @@ Toda vez que um novo cliente é cadastrado na RAI, esta automação cria no Goog
 ```
 155 Hotel
 ├── Acomodações
-│   └── Insira o nome da acomodação  (6 pastas)
+│   └── Renomeie com o nome da sua acomodação  (6 pastas)
 ├── Café da manhã
-├── Eventos
 ├── Estrutura
-└── Academia
+├── Lazer
+└── Eventos
 ```
 
 Ela roda no **Google Apps Script**, dentro da conta Google, sem servidor e sem custo. A cada 10 minutos, consulta a lista de clientes da RAI e cria pastas apenas para os clientes que ainda não conhece.

@@ -29,9 +29,9 @@ var CONFIG = {
   LIMITE_LIBERACAO_MANUAL: 30,
   INTERVALO_MINUTOS: 10,
   TENTATIVAS: 4,
-  SUBPASTAS: ['Acomodações', 'Café da manhã', 'Eventos', 'Estrutura', 'Academia'],
+  SUBPASTAS: ['Acomodações', 'Café da manhã', 'Estrutura', 'Lazer', 'Eventos'],
   PASTA_ACOMODACOES: 'Acomodações',
-  NOME_ACOMODACAO: 'Insira o nome da acomodação',
+  NOME_ACOMODACAO: 'Renomeie com o nome da sua acomodação',
   QTD_ACOMODACOES: 6,
   FUNCAO_GATILHO: 'verificarNovosClientes',
 };

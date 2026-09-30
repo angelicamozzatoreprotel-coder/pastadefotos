@@ -43,10 +43,10 @@ test('cliente novo ganha a estrutura completa, sem emoji no nome', () => {
 
   const [hotel] = t.fotos.children();
   assert.equal(hotel.name, '155 Hotel');
-  assert.deepEqual(hotel.children().map((f) => f.name), ['Acomodações', 'Café da manhã', 'Eventos', 'Estrutura', 'Academia']);
+  assert.deepEqual(hotel.children().map((f) => f.name), ['Acomodações', 'Café da manhã', 'Estrutura', 'Lazer', 'Eventos']);
   const acomodacoes = hotel.children()[0].children();
   assert.equal(acomodacoes.length, 6);
-  assert.ok(acomodacoes.every((f) => f.name === 'Insira o nome da acomodação'));
+  assert.ok(acomodacoes.every((f) => f.name === 'Renomeie com o nome da sua acomodação'));
 
   assert.equal(t.gs.verificarNovosClientes().status, 'sem-novos');
   assert.equal(t.fotos.children().length, 1);
