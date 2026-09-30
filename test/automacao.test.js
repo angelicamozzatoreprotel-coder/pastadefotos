@@ -135,10 +135,11 @@ test('dois clientes novos com o mesmo nome geram uma pasta só', () => {
 
 test('falha na RAI não cria nada e o erro aparece', () => {
   const t = prontoComMarcacao();
+  const antes = t.requests.length;
   t.env.http = () => ({ getResponseCode: () => 503, getContentText: () => 'fora do ar' });
   assert.throws(() => t.gs.verificarNovosClientes(), /HTTP 503/);
   assert.equal(t.fotos.children().length, 0);
-  assert.equal(t.requests.filter((r) => r.opts).length, 1 + 4);
+  assert.equal(t.requests.length - antes, 4);
 });
 
 test('chave recusada (401) não é repetida', () => {
@@ -149,21 +150,31 @@ test('chave recusada (401) não é repetida', () => {
   assert.equal(t.requests.length - antes, 1);
 });
 
-test('resposta sem a lista "clientes" é rejeitada', () => {
+test('resposta sem a lista em "data" é rejeitada', () => {
   const t = prontoComMarcacao(3);
   t.env.http = () => ({ getResponseCode: () => 200, getContentText: () => '{"erro":"x"}' });
-  assert.throws(() => t.gs.verificarNovosClientes(), /clientes/);
+  assert.throws(() => t.gs.verificarNovosClientes(), /"data"/);
 });
 
-test('requisição à RAI usa POST, payload e os dois cabeçalhos', () => {
-  const t = createEnv({ clientes: atuais(1) });
-  t.gs.testarConexao();
+test('consulta a API Pública com GET, token Bearer e paginação completa', () => {
+  const t = createEnv({ clientes: atuais(450) });
+  t.gs.marcarClientesAtuaisComoVistos();
+  assert.equal(Object.keys(t.gs.carregarVistos_()).length, 450);
+  assert.deepEqual(t.requests.map((r) => new URL(r.url).searchParams.get('offset')), ['0', '200', '400']);
   const { url, opts } = t.requests[0];
-  assert.equal(url, 'https://sb.reprotel.com.br/functions/v1/rai-clientes');
-  assert.equal(opts.method, 'post');
-  assert.deepEqual(JSON.parse(opts.payload), { action: 'list' });
+  assert.ok(url.startsWith('https://sb.reprotel.com.br/functions/v1/api-v1/v1/clientes?limit=200'));
+  assert.equal(opts.method, 'get');
   assert.equal(opts.headers.Authorization, 'Bearer chave-teste');
-  assert.equal(opts.headers.apikey, 'chave-teste');
+});
+
+test('falha em uma página do meio não cria nada', () => {
+  const t = prontoComMarcacao(450);
+  t.env.clientes.push(cliente('novo1', 'Hotel Novo'));
+  t.env.http = (url) => (new URL(url).searchParams.get('offset') === '200'
+    ? { getResponseCode: () => 500, getContentText: () => 'erro' }
+    : { getResponseCode: () => 200, getContentText: () => JSON.stringify({ data: t.env.clientes.slice(0, 200), limit: 200, offset: 0 }) });
+  assert.throws(() => t.gs.verificarNovosClientes(), /HTTP 500/);
+  assert.equal(t.fotos.children().length, 0);
 });
 
 test('falha no meio da criação manda a pasta incompleta para a lixeira e tenta de novo depois', () => {
@@ -188,7 +199,7 @@ test('lista de vistos grande é guardada em partes abaixo de 9 KB', () => {
   assert.equal(t.gs.verificarNovosClientes().status, 'sem-novos');
 });
 
-test('cliente sem clickup_task_id é ignorado', () => {
+test('cliente sem id é ignorado', () => {
   const t = prontoComMarcacao(3);
   t.env.clientes.push({ nome: '🏨 Sem ID' });
   assert.equal(t.gs.verificarNovosClientes().status, 'sem-novos');

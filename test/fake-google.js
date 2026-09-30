@@ -60,7 +60,11 @@ export function createEnv({ clientes = [], props = {}, http = null } = {}) {
       fetch: (url, opts) => {
         requests.push({ url, opts });
         if (env.http) return env.http(url, opts);
-        return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ clientes: env.clientes }) };
+        const u = new URL(url);
+        const limit = Number(u.searchParams.get('limit'));
+        const offset = Number(u.searchParams.get('offset'));
+        const data = env.clientes.slice(offset, offset + limit);
+        return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ data, limit, offset }) };
       },
     },
     DriveApp: {
@@ -95,7 +99,7 @@ export function createEnv({ clientes = [], props = {}, http = null } = {}) {
 }
 
 export function cliente(id, nome) {
-  return { clickup_task_id: id, nome, apelido: 'x', nome_contato: null };
+  return { id, nome, apelido: 'x', status: 'onboarding', tags: [] };
 }
 
 export function atuais(n) {

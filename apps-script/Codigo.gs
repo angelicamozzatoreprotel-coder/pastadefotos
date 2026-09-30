@@ -12,15 +12,17 @@
  *   ignorarClientesPendentes         marca um lote bloqueado como visto, sem criar pastas.
  *
  * Propriedades do script (Configurações do projeto > Propriedades do script):
- *   RAI_API_KEY       chave da API da RAI (obrigatória)
+ *   RAI_API_KEY       token pessoal da RAI, rpt_pat_..., com o scope clientes:read (obrigatória)
  *   FOTOS_FOLDER_ID   ID da pasta "Fotos" no Drive (obrigatória)
  *   EMAIL_ALERTA      e-mail que recebe os alertas (opcional; padrão: dono do script)
  */
 
 var CONFIG = {
-  RAI_URL: 'https://sb.reprotel.com.br/functions/v1/rai-clientes',
-  RAI_PAYLOAD: { action: 'list' },
-  CAMPO_ID: 'clickup_task_id',
+  // API Pública oficial da RAI (somente leitura). Token pessoal com o scope clientes:read.
+  RAI_URL: 'https://sb.reprotel.com.br/functions/v1/api-v1/v1/clientes',
+  RAI_POR_PAGINA: 200,
+  RAI_MAX_PAGINAS: 50,
+  CAMPO_ID: 'id',
   CAMPO_NOME: 'nome',
   LIMITE_NOVOS_POR_VEZ: 5,
   LIMITE_LIBERACAO_MANUAL: 30,
@@ -298,12 +300,22 @@ function alertarLote_(novos, props) {
 
 function buscarClientes_() {
   var chave = propriedadeObrigatoria_('RAI_API_KEY');
+  var todos = [];
+  for (var pagina = 0; pagina < CONFIG.RAI_MAX_PAGINAS; pagina += 1) {
+    var lote = buscarPagina_(chave, pagina * CONFIG.RAI_POR_PAGINA);
+    todos = todos.concat(lote);
+    if (lote.length < CONFIG.RAI_POR_PAGINA) return todos;
+  }
+  throw new Error('A lista de clientes passou de ' + CONFIG.RAI_MAX_PAGINAS + ' páginas. Consulta interrompida por segurança.');
+}
+
+// Qualquer falha em uma página interrompe a consulta inteira, para nunca trabalhar com lista parcial.
+function buscarPagina_(chave, offset) {
+  var url = CONFIG.RAI_URL + '?limit=' + CONFIG.RAI_POR_PAGINA + '&offset=' + offset;
   var texto = comRetry_(function () {
-    var resp = UrlFetchApp.fetch(CONFIG.RAI_URL, {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify(CONFIG.RAI_PAYLOAD),
-      headers: { Authorization: 'Bearer ' + chave, apikey: chave },
+    var resp = UrlFetchApp.fetch(url, {
+      method: 'get',
+      headers: { Authorization: 'Bearer ' + chave, Accept: 'application/json' },
       muteHttpExceptions: true,
     });
     var codigo = resp.getResponseCode();
@@ -319,10 +331,10 @@ function buscarClientes_() {
   } catch (e) {
     throw new Error('A resposta da RAI não é um JSON válido.');
   }
-  if (!dados || !Array.isArray(dados.clientes)) {
-    throw new Error('A resposta da RAI não trouxe a lista "clientes".');
+  if (!dados || !Array.isArray(dados.data)) {
+    throw new Error('A resposta da RAI não trouxe a lista de clientes em "data".');
   }
-  return dados.clientes;
+  return dados.data;
 }
 
 function idDoCliente_(cliente) {

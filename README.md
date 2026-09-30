@@ -45,14 +45,21 @@ Faça tudo com a conta Google que tem acesso de edição à pasta "Fotos". As pa
 5. Clique no ícone de engrenagem (**Configurações do projeto**), marque **Mostrar arquivo de manifesto "appsscript.json" no editor** e volte ao editor.
 6. Abra o `appsscript.json`, substitua o conteúdo pelo arquivo [`apps-script/appsscript.json`](apps-script/appsscript.json) e salve.
 
-### 2. Guardar a chave e o ID da pasta
+### 2. Gerar o token da RAI e guardar junto com o ID da pasta
+
+A automação usa a **API Pública** oficial da RAI, que é somente leitura. Gere o token assim:
+
+1. Na RAI, abra **Meus Tokens** (o link aparece em Integrações > API Pública > Autenticação).
+2. Crie um token marcando **apenas** o escopo `clientes:read`.
+3. Copie o valor, que começa com `rpt_pat_`. Ele aparece uma única vez.
+
 
 1. Abra a pasta "Fotos" no Google Drive e copie o trecho final do endereço: `https://drive.google.com/drive/folders/ESTE_TRECHO`.
 2. No Apps Script, vá em **Configurações do projeto > Propriedades do script > Adicionar propriedade do script** e crie:
 
 | Propriedade | Valor |
 | --- | --- |
-| `RAI_API_KEY` | a chave da API da RAI |
+| `RAI_API_KEY` | o token pessoal da RAI (começa com `rpt_pat_`) |
 | `FOTOS_FOLDER_ID` | o ID da pasta "Fotos" |
 | `EMAIL_ALERTA` | opcional: e-mail que recebe os alertas (padrão: sua conta) |
 
@@ -66,7 +73,9 @@ A chave fica guardada no projeto, fora do código. Quem tiver acesso de edição
 2. Na primeira execução, o Google pede autorização. Clique em **Revisar permissões**, escolha sua conta e permita. Se aparecer o aviso "O Google não verificou este app", clique em **Avançado** e depois em **Acessar Pasta de Fotos**. O aviso aparece porque o script é seu e não foi publicado.
 3. O registro de execução deve mostrar o total de clientes (hoje, 294), alguns exemplos de nomes já limpos e a confirmação de acesso à pasta "Fotos".
 
-Se aparecer `HTTP 401` ou `HTTP 403`, a RAI recusou a chave. Confira o valor de `RAI_API_KEY` e me avise, porque talvez a RAI espere a chave em outro formato.
+Se aparecer `HTTP 401`, o token está errado ou foi revogado. Se aparecer `HTTP 403`, falta o escopo `clientes:read` no token.
+
+**Confira o total de clientes com atenção.** O token enxerga só o que a pessoa que o criou enxerga na RAI. Se o total for menor que o número real de clientes, o token vê apenas uma carteira. Nesse caso, clientes novos de outras carteiras nunca ganhariam pasta, e o token precisa ser gerado por alguém que veja todos os clientes.
 
 ### 4. Marcar os clientes atuais
 
